@@ -5,9 +5,9 @@ Create a RestBatchExecutor using your app web URL. You can then create a BatchRe
 
 
     var createEndPoint = appweburl
-                       + "/_api/SP.AppContextSite(@target)/web/lists/getbytitle('coolwork')/items?@target='" + hostweburl + "'";
+    + "/_api/SP.AppContextSite(@target)/web/lists/getbytitle('coolwork')/items?@target='" + hostweburl + "'";
     var getEndPoint = appweburl
-                    + "/_api/SP.AppContextSite(@target)/web/lists/getbytitle('coolwork')/items?@target='" + hostweburl +   "'&$orderby=Title";
+    + "/_api/SP.AppContextSite(@target)/web/lists/getbytitle('coolwork')/items?@target='" + hostweburl +   "'&$orderby=Title";
     var commands = [];
     var batchExecutor = new RestBatchExecutor(appweburl);
     var batchRequest = new BatchRequest();
