@@ -1,10 +1,11 @@
 ﻿
 var RestBatchExecutor = (function () {
-    function RestBatchExecutor(appWebUrl) {
+    function RestBatchExecutor(appWebUrl, authHeader) {
         this.changeRequests = [];
         this.getRequests = [];
         this.resultsIndex = [];
         this.appWebUrl = appWebUrl;
+        this.authHeader = authHeader;
     }
     RestBatchExecutor.prototype.loadChangeRequest = function (request) {
         request.resultToken = this.getUniqueId();
@@ -48,11 +49,7 @@ var RestBatchExecutor = (function () {
             url: batchUrl,
             method: "POST",
             body: batchBody,
-            headers: {
-                'accept': 'application/json;odata=verbose',
-                'content-type': 'multipart/mixed; boundary=batch_8890ae8a-f656-475b-a47b-d46e194fa574',
-                'X-RequestDigest': $('#__REQUESTDIGEST').val()
-            },
+            headers: this.getRequestHeaders(),
             success: function (data) {
                 var results = _this.buildResults(data.body);
                 _this.clearRequests();
@@ -77,11 +74,7 @@ var RestBatchExecutor = (function () {
             'url': batchUrl,
             'type': 'POST',
             'data': batchBody,
-            'headers': {
-                'accept': 'application/json;odata=verbose',
-                'content-type': 'multipart/mixed; boundary=batch_8890ae8a-f656-475b-a47b-d46e194fa574',
-                'X-RequestDigest': $('#__REQUESTDIGEST').val()
-            },
+            'headers': this.getRequestHeaders(),
             'success': function (data) {
                 var results = _this.buildResults(data);
                 _this.clearRequests();
@@ -94,6 +87,32 @@ var RestBatchExecutor = (function () {
         });
 
         return dfd;
+    };
+
+    RestBatchExecutor.prototype.getRequestHeaders = function () {
+        var header = {};
+        header['accept'] = 'application/json;odata=verbos';
+        header['content-type'] = 'multipart/mixed; boundary=batch_8890ae8a-f656-475b-a47b-d46e194fa574';
+        header[Object.keys(this.authHeader)[0]] = this.authHeader[Object.keys(this.authHeader)[0]];
+
+        return header;
+    };
+
+    RestBatchExecutor.prototype.getBatchRequestHeaders = function (headers, batchCommand) {
+        var isAccept = false;
+        if (headers) {
+            $.each(Object.keys(headers), function (k, v) {
+                batchCommand.push(v + ": " + headers[v]);
+                if (!isAccept) {
+                    isAccept = (v.toUpperCase() === "ACCEPT");
+                }
+                ;
+            });
+        }
+
+        if (!isAccept) {
+            batchCommand.push('accept:application/json;odata=verbose');
+        }
     };
 
     RestBatchExecutor.prototype.buildBatch = function () {
@@ -137,17 +156,20 @@ var RestBatchExecutor = (function () {
         batchCommand.push("Content-ID: " + (batchIndex + 1));
         batchCommand.push(request.binary ? "processData: false" : "processData: true");
         batchCommand.push('');
-        batchCommand.push("POST " + request.endPoint + " HTTP/1.1");
-        if (!request.binary) {
+        batchCommand.push(request.verb.toUpperCase() + " " + request.endpoint + " HTTP/1.1");
+        this.getBatchRequestHeaders(request.headers, batchCommand);
+        if (!request.binary && request.payload) {
             batchCommand.push("Content-Type: application/json;odata=verbose");
         }
-        if (request.binary) {
+        if (request.binary && request.payload) {
             batchCommand.push("Content-Length :" + request.payload.byteLength);
         }
-        batchCommand.push('accept: application/json;odata=verbose');
         batchCommand.push('');
-        batchCommand.push(request.binary ? request.payload : JSON.stringify(request.payload));
-        batchCommand.push('');
+
+        if (request.payload) {
+            batchCommand.push(request.binary ? request.payload : JSON.stringify(request.payload));
+            batchCommand.push('');
+        }
     };
 
     RestBatchExecutor.prototype.buildBatchGetRequest = function (batchCommand, request, batchIndex) {
@@ -156,8 +178,8 @@ var RestBatchExecutor = (function () {
         batchCommand.push('Content-Transfer-Encoding: binary');
         batchCommand.push("Content-ID: " + (batchIndex + 1));
         batchCommand.push('');
-        batchCommand.push('GET ' + request.endPoint + ' HTTP/1.1');
-        batchCommand.push('Accept: application/json;odata=verbose');
+        batchCommand.push('GET ' + request.endpoint + ' HTTP/1.1');
+        this.getBatchRequestHeaders(request.headers, batchCommand);
         batchCommand.push('');
     };
 
@@ -192,11 +214,12 @@ var RestBatchExecutor = (function () {
             case "404":
             case "500":
             case "200":
-                return JSON.parse(response[7]);
+                return this.parseJSON(response[7]);
+            case "204":
             case "201":
-                return JSON.parse(response[9]);
+                return this.parseJSON(response[9]);
             default:
-                return response[4];
+                return this.parseJSON(response[4]);
         }
     };
 
@@ -222,6 +245,23 @@ var RestBatchExecutor = (function () {
         }
         ;
     };
+
+    RestBatchExecutor.prototype.parseJSON = function (jsonString) {
+        try  {
+            var o = JSON.parse(jsonString);
+
+            // Handle non-exception-throwing cases:
+            // Neither JSON.parse(false) or JSON.parse(1234) throw errors, hence the type-checking,
+            // but... JSON.parse(null) returns 'null', and typeof null === "object",
+            // so we must check for that, too.
+            if (o && typeof o === "object" && o !== null) {
+                return o;
+            }
+        } catch (e) {
+        }
+
+        return jsonString;
+    };
     return RestBatchExecutor;
 })();
 
@@ -235,9 +275,11 @@ var RestBatchResult = (function () {
 var BatchRequest = (function () {
     function BatchRequest() {
         this.resultToken = "";
-        this.endPoint = "";
+        this.endpoint = "";
         this.payload = "";
         this.binary = false;
+        this.headers = null;
+        this.verb = "GET";
     }
     return BatchRequest;
 })();
