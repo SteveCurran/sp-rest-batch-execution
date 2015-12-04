@@ -9,13 +9,13 @@ var RestBatchExecutor = (function () {
     }
     RestBatchExecutor.prototype.loadChangeRequest = function (request) {
         request.resultToken = this.getUniqueId();
-        this.changeRequests.push(request);
+        this.changeRequests.push($.extend({},request));
         return request.resultToken;
     };
 
     RestBatchExecutor.prototype.loadRequest = function (request) {
         request.resultToken = this.getUniqueId();
-        this.getRequests.push(request);
+        this.getRequests.push($.extend({},request));
         return request.resultToken;
     };
 
