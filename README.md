@@ -1,5 +1,5 @@
 # sp-rest-batch-execution
-Javascript library for executing SharePoint REST commands in batches for O365 or SharePoint 2016. To be used new REST batch requests.
+Javascript library for executing SharePoint REST commands in batches for O365 or SharePoint 2016. To be used with the new REST batch requests.
 #Example
 The RestBatchExecutor encapsulates all the complexity of wrapping your REST requests into one change set and batch. First create a new RestBatchExecutor. The constructor requires the application web URL and an authentication header. The URL will be used to construct the $Batch endpoint where the requests will be submitted. The authentication header in the form of a JSON object allows for you to either use the formDigest or the OAuth token. 
 
